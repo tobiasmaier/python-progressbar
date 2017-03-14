@@ -93,17 +93,21 @@ class StdRedirectMixin(DefaultFdMixin):
         DefaultFdMixin.__init__(self, **kwargs)
         self.redirect_stderr = redirect_stderr
         self.redirect_stdout = redirect_stdout
-        self._stdout = self.stdout = sys.stdout
-        self._stderr = self.stderr = sys.stderr
+        self.stdout = sys.stdout
+        self.stderr = sys.stderr
+        self._stdout = sys.stdout.write
+        self._stderr = sys.stdout.write
 
     def start(self, *args, **kwargs):
         self.stderr = self._stderr = sys.stderr
         if self.redirect_stderr:
-            self.stderr = sys.stderr = six.StringIO()
+            self.stderr = six.StringIO()
+            sys.stderr.write = self.stderr.write
 
         self.stdout = self._stdout = sys.stdout
         if self.redirect_stdout:
-            self.stdout = sys.stdout = six.StringIO()
+            self.stdout = six.StringIO()
+            sys.stdout.write = self.stdout.write
 
         DefaultFdMixin.start(self, *args, **kwargs)
 
@@ -114,7 +118,7 @@ class StdRedirectMixin(DefaultFdMixin):
 
                 # Not atomic unfortunately, but writing to the same stream
                 # from multiple threads is a bad idea anyhow
-                self._stderr.write(sys.stderr.getvalue())
+                self._stderr.write(self.stderr.getvalue())
                 sys.stderr.seek(0)
                 sys.stderr.truncate(0)
 
@@ -130,7 +134,7 @@ class StdRedirectMixin(DefaultFdMixin):
 
                 # Not atomic unfortunately, but writing to the same stream
                 # from multiple threads is a bad idea anyhow
-                self._stdout.write(sys.stdout.getvalue())
+                self._stdout.write(self.stdout.getvalue())
                 sys.stdout.seek(0)
                 sys.stdout.truncate(0)
 
@@ -146,12 +150,12 @@ class StdRedirectMixin(DefaultFdMixin):
         DefaultFdMixin.finish(self)
 
         if self.redirect_stderr and hasattr(sys.stderr, 'getvalue'):
-            self._stderr.write(sys.stderr.getvalue())
-            self.stderr = sys.stderr = self._stderr
+            self._stderr.write(self.stderr.getvalue())
+            sys.stderr.write = self._stderr.write
 
         if self.redirect_stdout and hasattr(sys.stdout, 'getvalue'):
-            self._stdout.write(sys.stdout.getvalue())
-            self.stdout = sys.stdout = self._stdout
+            self._stdout.write(self.stdout.getvalue())
+            sys.stdout.write = self._stdout.write
 
 
 class ProgressBar(StdRedirectMixin, ResizableMixin, ProgressBarBase):
